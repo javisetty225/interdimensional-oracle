@@ -1,0 +1,13 @@
+[project]
+name = "interdimensional-oracle"
+version = "0.1.0"
+description = "A RAG-powered AI agent for the Rick & Morty universe"
+requires-python = ">=3.13"
+authors = [
+  { name = "Nagaraju Javisetty", email = "nagajavisetty143@gmail.com" }
+]
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
