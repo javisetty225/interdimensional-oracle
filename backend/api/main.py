@@ -2,14 +2,12 @@
 import logging
 from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import core.retriever as retriever_module
 from api.endpoints import router
 
-load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,7 +41,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # Dev only - restricted to frontend origin in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
