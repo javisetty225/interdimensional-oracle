@@ -1,32 +1,22 @@
 """
-Guardrails layer — code-level query classification.
+Code-level query classifier — first guardrail layer.
 
-Two guardrail mechanisms are implemented as required by the task:
-
-1. Code-level (this file):
-   Classifies queries into four categories:
-   - Greetings:     instant welcome message, no LLM needed
-   - Help requests: instant help message, no LLM needed
-   - Off-topic:     blocked with explanation, no LLM needed
-   - Valid queries: pass through to retriever and LLM
-
-   Greetings and help requests get instant rule-based responses
-   instead of going to the LLM. This saves API cost and reduces
-   latency for simple interactions that do not need LLM reasoning.
-
-2. Prompt-level (in rag.py):
-   System prompt instructs the LLM to refuse non-Rick & Morty
-   questions that slip past the code-level check.
+Classifies queries into four categories before any LLM call:
+  - greeting:  instant welcome response, zero API cost
+  - help:      instant help response, zero API cost
+  - allowed:   passes through to retriever and LLM
+  - off_topic: blocked with explanation, zero API cost
 
 Design decisions:
-- RM_SIGNALS only contains terms genuinely specific to Rick & Morty.
-  Generic words like "smith", "species", "what is", "list" were
-  excluded to avoid false positives on everyday queries.
-- BLOCKED_PATTERNS uses simple broad terms like "\bwrite\b" rather
-  than narrow patterns like "\bwrite (me |a |an )" to avoid gaps.
-- The classifier is intentionally permissive for ambiguous queries.
-  It is better to allow a borderline query to the LLM than to
-  incorrectly block a valid Rick & Morty question.
+  - RM_SIGNALS contains only terms specific to Rick & Morty.
+    Generic words like "smith" and "species" were excluded
+    to avoid false positives on everyday queries.
+  - R&M signals are checked BEFORE blocked patterns so that
+    queries like "Rick writes a poem" are correctly allowed
+    even though "write" is a blocked word.
+  - The classifier is intentionally permissive for ambiguous
+    queries — the prompt-level guardrail in rag.py handles
+    anything that slips through.
 """
 import logging
 import re

@@ -1,26 +1,16 @@
 """
-Builds a semantic vector knowledge base from raw Rick & Morty API data.
+ChromaDB vector index builder.
 
-Architecture decision: ChromaDB + sentence-transformers (all-mpnet-base-v2).
+Fetches raw JSON from data/raw/, builds document strings
+for each entity, generates embeddings using all-mpnet-base-v2,
+and stores everything in ChromaDB at data/chroma_db/.
 
-Development history:
-- BM25 + TF-IDF was evaluated first. Exact name queries worked well but
-  paraphrased queries failed consistently due to keyword mismatch.
-- ChromaDB with all-MiniLM-L6-v2 was evaluated next. Location queries
-  improved but highly paraphrased queries remained weak.
-- Upgraded to all-mpnet-base-v2 for better semantic understanding.
-  This model produces higher quality embeddings at the cost of size.
+Run once after fetching data:
+    cd backend
+    python -m data.indexer
 
-Why ChromaDB over a vector database service:
-- Runs fully locally — no external server, no API cost, no network dependency
-- Stores index as local files — fast startup, easy to rebuild
-- Sufficient for 1003 documents at this scale
-
-Known limitation:
-- Relationship queries ("friend of Rick", "enemy of Morty") fail because
-  the API only contains factual data — relationships are not in the source.
-- Descriptive queries ("dead characters") are weaker than metadata filtering.
-  A hybrid search approach would improve this.
+First run downloads the embedding model (~420MB).
+Subsequent runs rebuild the index in under 2 minutes.
 """
 import json
 import logging

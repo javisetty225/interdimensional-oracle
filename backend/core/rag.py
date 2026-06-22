@@ -1,18 +1,17 @@
 """
-RAG pipeline — the core of the Interdimensional Oracle.
+RAG pipeline — orchestrates the full query lifecycle.
 
-Orchestrates the full query lifecycle:
-1. Retrieve relevant documents from ChromaDB
-2. Format retrieved documents as context
-3. Build conversation messages with injected context
-4. Call Claude API and stream the response
+Flow:
+  1. Code-level guardrail check (guardrails.py)
+  2. ChromaDB retrieval (retriever.py)
+  3. Context injection into Claude's prompt
+  4. Streaming SSE response via Anthropic API
 
-The system prompt implements the prompt-level guardrail as required.
-It instructs the LLM to:
-- Answer exclusively from retrieved context (no hallucination)
-- Refuse off-topic questions not about Rick & Morty
-- Always cite sources used in the answer
-- Admit when retrieved context is insufficient
+The system prompt is the prompt-level guardrail — the second
+of two required guardrail mechanisms. It instructs Claude to:
+  - Answer only from retrieved context (no hallucination)
+  - Refuse non-Rick & Morty questions
+  - Never add a sources section (displayed by the frontend)
 """
 import logging
 import os

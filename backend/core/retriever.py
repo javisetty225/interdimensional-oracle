@@ -1,18 +1,15 @@
 """
-Semantic retriever using ChromaDB and sentence-transformers.
+ChromaDB semantic retriever.
 
-Converts the user query into an embedding vector and finds the most
-semantically similar documents in the ChromaDB collection.
+Encodes queries as 768-dim vectors using all-mpnet-base-v2
+and performs cosine similarity search over 1003 documents.
 
-Why semantic search over keyword search:
-- Handles paraphrased queries without exact keyword matches
-- "characters from Bird World" finds Birdperson correctly
-- "what dimension is Earth C-137" finds the location document
-- Keyword search (BM25) was evaluated first but failed consistently
-  on paraphrased queries — see README known limitations for details
+Why all-mpnet-base-v2 over alternatives:
+  - all-MiniLM-L6-v2: tested first, weaker on paraphrased queries
+  - text-embedding-3-large: requires OpenAI API call per query
+  - all-mpnet-base-v2: runs fully locally, strong semantic understanding
 
-The embedding model is loaded once at startup and cached in memory.
-ChromaDB handles similarity search internally using HNSW indexing.
+Confidence score = 1 - (cosine_distance / 2), range 0.0 to 1.0.
 """
 import os
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
