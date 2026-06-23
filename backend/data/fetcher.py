@@ -20,6 +20,12 @@ REQUEST_DELAY_SECONDS = 0.3
 RATE_LIMIT_WAIT_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 30.0
 MAX_RETRIES = 3
+HTTP_TOO_MANY_REQUESTS = 429
+
+
+def _write_json(path: Path, records: list[dict]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
 
 
 async def fetch_all_pages(
@@ -48,7 +54,7 @@ async def fetch_all_pages(
                 logger.error("Network error fetching %s: %s", url, e)
                 raise
 
-            if resp.status_code == 429:
+            if resp.status_code == HTTP_TOO_MANY_REQUESTS:
                 wait = RATE_LIMIT_WAIT_SECONDS * (attempt + 1)
                 logger.warning(
                     "Rate limited on %s — attempt %d/%d, waiting %ds",
@@ -92,8 +98,7 @@ async def fetch_all_data() -> None:
             records = await fetch_all_pages(client, endpoint)
 
             out_path = DATA_DIR / f"{endpoint}.json"
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(records, f, ensure_ascii=False, indent=2)
+            await asyncio.to_thread(_write_json, out_path, records)
 
             logger.info(
                 "Saved %d %s records to %s",

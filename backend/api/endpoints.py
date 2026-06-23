@@ -5,12 +5,11 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
-
 import core.retriever as retriever_module
 from core.rag import stream_rag_response
 from core.retriever import retrieve
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
 
 from .models import BrowseRequest, ChatRequest, FeedbackRequest
 
@@ -19,6 +18,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 FEEDBACK_LOG = Path(__file__).parent.parent / "data" / "feedback.jsonl"
+SUMMARY_PREVIEW_CHARS = 200
+
+
+def _append_feedback_entry(entry: dict) -> None:
+    with open(FEEDBACK_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 @router.get("/health")
@@ -120,8 +125,7 @@ async def submit_feedback(request: FeedbackRequest):
         "comment": request.comment,
     }
 
-    with open(FEEDBACK_LOG, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    await asyncio.to_thread(_append_feedback_entry, entry)
 
     logger.info(
         "Feedback logged — query: '%s', helpful: %s",
@@ -189,8 +193,8 @@ async def browse(request: BrowseRequest):
                 "name": d["name"],
                 "type": d["type"],
                 "summary": (
-                    d["text"][:200] + "..."
-                    if len(d["text"]) > 200
+                    d["text"][:SUMMARY_PREVIEW_CHARS] + "..."
+                    if len(d["text"]) > SUMMARY_PREVIEW_CHARS
                     else d["text"]
                 ),
                 "raw": d["raw"],

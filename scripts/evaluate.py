@@ -6,8 +6,12 @@ import time
 from pathlib import Path
 from typing import Any
 
+from backend.core.prompts import MINIMAL_SYSTEM_PROMPT, SYSTEM_PROMPT
+from backend.core.rag import rag_response_full
+from backend.core.retriever import retrieve
 from datasets import Dataset
 from dotenv import load_dotenv
+from golden_dataset import GOLDEN_DATASET, EvalSample
 from langchain_anthropic import ChatAnthropic
 from ragas import evaluate
 from ragas.llms import LangchainLLMWrapper
@@ -17,11 +21,6 @@ from ragas.metrics import (
     faithfulness,
 )
 from ragas.run_config import RunConfig
-
-from backend.core.rag import rag_response_full
-from backend.core.retriever import retrieve
-from golden_dataset import GOLDEN_DATASET, EvalSample
-
 
 # ------------------------------------------------------------------------------
 # Configuration
@@ -136,8 +135,6 @@ class RAGEvaluator:
         )
 
     async def run(self) -> None:
-        from backend.core.rag import SYSTEM_PROMPT, MINIMAL_SYSTEM_PROMPT
-
         start = time.perf_counter()
         all_scores = {}
 

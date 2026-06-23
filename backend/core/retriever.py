@@ -12,6 +12,7 @@ Why all-mpnet-base-v2 over alternatives:
 Confidence score = 1 - (cosine_distance / 2), range 0.0 to 1.0.
 """
 import os
+
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
 
@@ -19,7 +20,6 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -40,7 +40,7 @@ def _load_index() -> None:
     Load ChromaDB collection and embedding model into memory.
     Called once at server startup — subsequent calls are no-ops.
     """
-    global _collection, _model
+    global _collection, _model  # noqa: PLW0603 — lazy singleton cache, populated once at startup
 
     if _collection is not None:
         return
@@ -76,7 +76,7 @@ def _distance_to_confidence(distance: float) -> float:
 def retrieve(
     query: str,
     top_k: int = 5,
-    filter_type: Optional[str] = None,
+    filter_type: str | None = None,
 ) -> list[dict]:
     """
     Search the ChromaDB knowledge base for documents relevant to the query.
@@ -162,7 +162,7 @@ _LIST_INTENT = re.compile(
 )
 
 
-def build_structured_filter(query: str) -> Optional[dict]:
+def build_structured_filter(query: str) -> dict | None:
     """
     Detect attribute-list queries ('all dead characters', 'female robots')
     and build a ChromaDB metadata filter. Returns None for normal questions

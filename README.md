@@ -279,6 +279,7 @@ interdimensional-oracle/
 │   │   └── models.py           ← Pydantic request/response models
 │   ├── core/
 │   │   ├── rag.py              ← RAG pipeline + prompt-level guardrail
+│   │   ├── prompts.py          ← system prompts (persona + minimal baseline)
 │   │   ├── retriever.py        ← hybrid retrieval (semantic + metadata)
 │   │   └── guardrails.py       ← code-level query classification
 │   └── data/

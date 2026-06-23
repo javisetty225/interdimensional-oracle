@@ -33,3 +33,15 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["backend"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+preview = true
+extend-select = [
+    "PLE", "PLW", "PLC", "PLR", "FAST", "I", "D419",
+    "E501", "W291", "UP004", "C416", "B033", "E722"
+]
+[tool.ruff.lint.per-file-ignores]
+"backend/core/prompts.py" = ["E501"]

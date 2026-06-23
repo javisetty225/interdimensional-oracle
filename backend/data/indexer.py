@@ -17,6 +17,7 @@ import logging
 from pathlib import Path
 
 import chromadb
+from chromadb.errors import NotFoundError
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
@@ -28,6 +29,11 @@ CHROMA_DIR = Path(__file__).parent / "chroma_db"
 COLLECTION_NAME = "rick_and_morty"
 EMBEDDING_MODEL = "all-mpnet-base-v2"
 BATCH_SIZE = 64
+
+MAJOR_CHARACTER_EPISODE_THRESHOLD = 40
+RECURRING_CHARACTER_EPISODE_THRESHOLD = 10
+SUPPORTING_CHARACTER_EPISODE_THRESHOLD = 3
+SEASON_EPISODE_CODE_LENGTH = 6
 
 
 def build_character_doc(c: dict) -> dict:
@@ -41,11 +47,11 @@ def build_character_doc(c: dict) -> dict:
     episodes = c.get("episode", [])
     episode_count = len(episodes)
 
-    if episode_count >= 40:
+    if episode_count >= MAJOR_CHARACTER_EPISODE_THRESHOLD:
         frequency = "major recurring character appearing in nearly all episodes"
-    elif episode_count >= 10:
+    elif episode_count >= RECURRING_CHARACTER_EPISODE_THRESHOLD:
         frequency = "recurring character appearing in many episodes"
-    elif episode_count >= 3:
+    elif episode_count >= SUPPORTING_CHARACTER_EPISODE_THRESHOLD:
         frequency = "supporting character appearing in several episodes"
     else:
         frequency = "minor character with limited appearances"
@@ -94,7 +100,7 @@ def build_episode_doc(e: dict) -> dict:
     season_ep = e.get("episode", "")
 
     season_desc = ""
-    if season_ep and len(season_ep) == 6:
+    if season_ep and len(season_ep) == SEASON_EPISODE_CODE_LENGTH:
         season_num = str(int(season_ep[1:3]))
         ep_num = str(int(season_ep[4:6]))
         season_desc = (
@@ -200,8 +206,8 @@ def build_index() -> None:
     try:
         client.delete_collection(COLLECTION_NAME)
         logger.info("Deleted existing collection for clean rebuild")
-    except Exception:
-        pass
+    except NotFoundError:
+        logger.info("No existing collection to delete — building fresh")
 
     collection = client.create_collection(
         name=COLLECTION_NAME,

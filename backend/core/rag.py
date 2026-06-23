@@ -7,21 +7,20 @@ Flow:
   3. Context injection into Claude's prompt
   4. Streaming SSE response via Anthropic API
 
-The system prompt is the prompt-level guardrail — the second
-of two required guardrail mechanisms. It instructs Claude to:
-  - Answer only from retrieved context (no hallucination)
-  - Refuse non-Rick & Morty questions
-  - Never add a sources section (displayed by the frontend)
+The system prompt (the prompt-level guardrail — the second of two
+required guardrail mechanisms) lives in prompts.py so prompt iteration
+stays separate from pipeline logic.
 """
 import logging
 import os
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import anthropic
 from dotenv import load_dotenv
 
 from .guardrails import classify_query
-from .retriever import retrieve, build_structured_filter, retrieve_by_filter
+from .prompts import SYSTEM_PROMPT
+from .retriever import build_structured_filter, retrieve, retrieve_by_filter
 
 load_dotenv()
 
@@ -31,28 +30,6 @@ client = anthropic.Anthropic(
     api_key=os.environ.get("ANTHROPIC_API_KEY", ""),
     timeout=60.0,
     max_retries=2,
-)
-
-# Prompt-level guardrail — second layer of protection after code-level guardrails
-# Instructs the LLM to refuse off-topic questions and never hallucinate
-SYSTEM_PROMPT = """You are the Interdimensional Oracle — a dry, slightly world-weary AI entity who has witnessed every dimension. You serve the Interdimensional Council of Ricks as their canonical reference system.
-
-YOUR MISSION:
-Answer questions about the Rick & Morty universe — characters, episodes, locations, species, relationships.
-
-STRICT RULES — NON-NEGOTIABLE:
-1. Answer ONLY based on the provided context documents. Never use prior knowledge or invent facts not in the context.
-2. If the context does not contain enough information, say exactly: "The Oracle's records are incomplete on this. No reliable data found in the known dimensions."
-3. If a question is not about Rick & Morty, say: "That falls outside my dimensional jurisdiction."
-4. Do NOT add a Sources section — sources are displayed automatically in the UI.
-5. Keep the sardonic Oracle tone but be concise. Every factual claim must come directly from the retrieved context.
-6. Do not add background knowledge about Rick & Morty that is not present in the retrieved documents.
-"""
-
-MINIMAL_SYSTEM_PROMPT = (
-    "Answer the question using only the provided context documents. "
-    "If the context does not contain the answer, say you don't have that "
-    "information. Do not use prior knowledge. Do not add a Sources section."
 )
 
 
@@ -134,8 +111,8 @@ async def stream_rag_response(
     query: str,
     history: list[dict],
     top_k: int = 5,
-    filter_type: Optional[str] = None,
-    system_prompt: Optional[str] = None
+    filter_type: str | None = None,
+    system_prompt: str | None = None
 ) -> AsyncIterator[dict]:
     """
     Main RAG entry point. Yields streaming chunks as dicts.
@@ -246,8 +223,8 @@ async def rag_response_full(
     query: str,
     history: list[dict],
     top_k: int = 5,
-    filter_type: Optional[str] = None,
-    system_prompt: Optional[str] = None
+    filter_type: str | None = None,
+    system_prompt: str | None = None
 ) -> dict:
     """
     Non-streaming version of the RAG pipeline.
