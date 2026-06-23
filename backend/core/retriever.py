@@ -17,6 +17,7 @@ os.environ["HF_DATASETS_OFFLINE"] = "1"
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -143,3 +144,73 @@ def retrieve(
     )
 
     return formatted
+
+STATUS_KEYWORDS = {
+    r"\bdead\b": "Dead", r"\bdeceased\b": "Dead",
+    r"\balive\b": "Alive", r"\bliving\b": "Alive",
+}
+GENDER_KEYWORDS = {
+    r"\bfemale\b": "Female", r"\bmale\b": "Male", r"\bgenderless\b": "Genderless",
+}
+SPECIES_KEYWORDS = {
+    r"\bhumans?\b": "Human", r"\baliens?\b": "Alien", r"\brobots?\b": "Robot",
+    r"\bhumanoids?\b": "Humanoid", r"\banimals?\b": "Animal",
+}
+_LIST_INTENT = re.compile(
+    r"\b(all|list|show|every|how many|which)\b|"
+    r"\bcharacters\b|\blocations\b|\bepisodes\b"
+)
+
+
+def build_structured_filter(query: str) -> Optional[dict]:
+    """
+    Detect attribute-list queries ('all dead characters', 'female robots')
+    and build a ChromaDB metadata filter. Returns None for normal questions
+    so single-entity queries ('Is Rick dead?') still go through semantic search.
+    """
+    q = query.lower()
+    if not _LIST_INTENT.search(q):
+        return None
+
+    conditions = [{"type": "character"}]
+    matched = False
+    for table in (STATUS_KEYWORDS, GENDER_KEYWORDS, SPECIES_KEYWORDS):
+        for pattern, value in table.items():
+            if re.search(pattern, q):
+                field = "status" if table is STATUS_KEYWORDS else \
+                        "gender" if table is GENDER_KEYWORDS else "species"
+                conditions.append({field: value})
+                matched = True
+                break
+
+    if not matched:
+        return None
+
+    where = conditions[0] if len(conditions) == 1 else {"$and": conditions}
+    return {"where": where}
+
+
+def retrieve_by_filter(where: dict, limit: int = 25) -> tuple[list[dict], int]:
+    """
+    Exact metadata match (no embedding). Returns (results, total_match_count).
+    Confidence is 1.0 because these are exact field matches, not similarity.
+    """
+    _load_index()
+    ids = _collection.get(where=where, include=[])["ids"]
+    total = len(ids)
+    if total == 0:
+        return [], 0
+
+    raw = _collection.get(ids=ids[:limit], include=["documents", "metadatas"])
+    results = []
+    for i, doc_id in enumerate(raw["ids"]):
+        md = raw["metadatas"][i]
+        results.append({
+            "doc": {
+                "id": doc_id, "type": md["type"], "name": md["name"],
+                "text": raw["documents"][i], "raw": json.loads(md["raw"]),
+            },
+            "confidence": 1.0,
+            "distance": 0.0,
+        })
+    return results, total

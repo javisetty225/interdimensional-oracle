@@ -21,7 +21,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from .guardrails import classify_query
-from .retriever import retrieve
+from .retriever import retrieve, build_structured_filter, retrieve_by_filter
 
 load_dotenv()
 
@@ -168,9 +168,15 @@ async def stream_rag_response(
         }
         return
 
-    # Step 2 — Retrieve relevant documents
-    logger.info("Retrieving documents for query: '%s'", query)
-    retrieved = retrieve(query, top_k=top_k, filter_type=filter_type)
+    # Step 2 — Structured attribute filter first, else semantic retrieval
+    structured = build_structured_filter(query)
+    if structured:
+        logger.info("Structured attribute query: %s", structured["where"])
+        retrieved, total_matches = retrieve_by_filter(structured["where"])
+    else:
+        logger.info("Retrieving documents for query: '%s'", query)
+        retrieved = retrieve(query, top_k=top_k, filter_type=filter_type)
+        total_matches = len(retrieved)
 
     # Step 3 — Yield source metadata before streaming starts
     # Frontend uses this to show source tags and confidence bar
@@ -196,6 +202,11 @@ async def stream_rag_response(
 
     # Step 4 — Build prompt with injected context
     context = _format_context(retrieved)
+    if total_matches > len(retrieved):
+        context = (
+                f"NOTE: {total_matches} entities match this query. "
+                f"Showing the first {len(retrieved)}.\n\n" + context
+        )
     messages = _build_messages(query, history, context)
 
     # Step 5 — Stream Claude response

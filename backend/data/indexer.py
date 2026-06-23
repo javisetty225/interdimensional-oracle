@@ -75,6 +75,11 @@ def build_character_doc(c: dict) -> dict:
         "name": name,
         "text": text,
         "raw": c,
+        "filter_meta": {
+            "status": status,
+            "species": species,
+            "gender": gender,
+        },
     }
 
 
@@ -227,6 +232,7 @@ def build_index() -> None:
                     "type": d["type"],
                     "name": d["name"],
                     "raw": json.dumps(d["raw"]),
+                    **d.get("filter_meta", {}),
                 }
                 for d in batch
             ],
