@@ -230,6 +230,7 @@ async def stream_rag_response(
             max_tokens=1024,
             system=system_prompt or SYSTEM_PROMPT,
             messages=messages,
+            temperature=0
         ) as stream:
             for text_chunk in stream.text_stream:
                 yield {"type": "text_delta", "text": text_chunk}

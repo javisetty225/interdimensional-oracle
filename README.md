@@ -140,9 +140,15 @@ This keeps embeddings for what they are good at (meaning) and uses exact filteri
 ```bash
 git clone https://github.com/javisetty225/interdimensional-oracle
 cd interdimensional-oracle
-pip install -e .
-# for tests + evaluation, install the dev extras:
-# pip install -e ".[dev]"
+
+# Install exact locked dependencies into a local .venv
+uv sync
+# for tests + evaluation, include the dev extras:
+# uv sync --extra dev
+
+# Activate the virtual environment
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate           # Windows
 ```
 
 ### Step 2 — Add your API key
