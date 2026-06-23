@@ -73,26 +73,18 @@ class RAGEvaluator:
     async def process_question(
         self,
         sample: EvalSample,
+        system_prompt: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Execute RAG pipeline for a single sample.
-        """
-
+        """Execute the RAG pipeline for a single sample."""
         try:
             rag_result = await rag_response_full(
                 sample.question,
                 history=[],
+                system_prompt=system_prompt,
             )
 
-            retrieved_docs = retrieve(
-                sample.question,
-                top_k=TOP_K,
-            )
-
-            contexts = [
-                doc["doc"]["text"]
-                for doc in retrieved_docs
-            ]
+            retrieved_docs = retrieve(sample.question, top_k=TOP_K)
+            contexts = [doc["doc"]["text"] for doc in retrieved_docs]
 
             return {
                 "question": sample.question,
@@ -102,11 +94,7 @@ class RAGEvaluator:
             }
 
         except Exception:
-            logger.exception(
-                "Failed processing question: %s",
-                sample.question,
-            )
-
+            logger.exception("Failed processing question: %s", sample.question)
             return {
                 "question": sample.question,
                 "answer": "",
@@ -116,11 +104,9 @@ class RAGEvaluator:
 
     async def build_dataset(
         self,
+        system_prompt: str | None = None,
     ) -> Dataset:
-        """
-        Run the entire RAG pipeline and create a HuggingFace dataset.
-        """
-
+        """Run the RAG pipeline over the golden set and build a dataset."""
         logger.info(
             "Building evaluation dataset (%d samples)...",
             len(GOLDEN_DATASET),
@@ -128,93 +114,49 @@ class RAGEvaluator:
 
         results = await asyncio.gather(
             *[
-                self.process_question(sample)
+                self.process_question(sample, system_prompt=system_prompt)
                 for sample in GOLDEN_DATASET
             ]
         )
 
-        dataset_dict = {
+        return Dataset.from_dict({
             "question": [r["question"] for r in results],
             "answer": [r["answer"] for r in results],
             "contexts": [r["contexts"] for r in results],
             "ground_truth": [r["ground_truth"] for r in results],
-        }
+        })
 
-        return Dataset.from_dict(dataset_dict)
-
-    def evaluate_dataset(
-        self,
-        dataset: Dataset,
-    ):
+    def evaluate_dataset(self, dataset: Dataset):
         logger.info("Starting RAGAS evaluation...")
-
         return evaluate(
             dataset=dataset,
-            metrics=[
-                faithfulness,
-                context_precision,
-                context_recall,
-            ],
+            metrics=[faithfulness, context_precision, context_recall],
             llm=self.llm,
-            run_config=RunConfig(
-                max_workers=MAX_WORKERS,
-            ),
-        )
-
-    def save_results(
-        self,
-        result,
-        elapsed_time: float,
-    ) -> None:
-        scores = {
-            metric: round(result[metric], 4)
-            for metric in result.keys()
-        }
-
-        scores["elapsed_time_seconds"] = round(
-            elapsed_time,
-            2,
-        )
-
-        with open(
-            OUTPUT_FILE,
-            "w",
-            encoding="utf-8",
-        ) as f:
-            json.dump(
-                scores,
-                f,
-                indent=2,
-            )
-
-        logger.info(
-            "Results saved to %s",
-            OUTPUT_FILE,
+            run_config=RunConfig(max_workers=MAX_WORKERS),
         )
 
     async def run(self) -> None:
-        start_time = time.perf_counter()
+        from backend.core.rag import SYSTEM_PROMPT, MINIMAL_SYSTEM_PROMPT
 
-        dataset = await self.build_dataset()
+        start = time.perf_counter()
+        all_scores = {}
 
-        result = self.evaluate_dataset(dataset)
+        for label, prompt in [
+            ("persona", SYSTEM_PROMPT),
+            ("minimal", MINIMAL_SYSTEM_PROMPT),
+        ]:
+            logger.info("Evaluating config: %s", label)
+            dataset = await self.build_dataset(system_prompt=prompt)
+            result = self.evaluate_dataset(dataset)
+            all_scores[label] = {m: round(result[m], 4) for m in result.keys()}
 
-        elapsed_time = time.perf_counter() - start_time
+        all_scores["elapsed_time_seconds"] = round(time.perf_counter() - start, 2)
 
-        self.save_results(
-            result=result,
-            elapsed_time=elapsed_time,
-        )
+        with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+            json.dump(all_scores, f, indent=2)
 
-        logger.info(
-            "Evaluation completed in %.2f seconds.",
-            elapsed_time,
-        )
+        logger.info("Results saved to %s", OUTPUT_FILE)
 
-
-# ------------------------------------------------------------------------------
-# Main
-# ------------------------------------------------------------------------------
 
 async def main() -> None:
     evaluator = RAGEvaluator()

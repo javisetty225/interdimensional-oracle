@@ -1,0 +1,13 @@
+{
+  "persona": {
+    "faithfulness": 0.5924,
+    "context_precision": 0.85,
+    "context_recall": 1.0
+  },
+  "minimal": {
+    "faithfulness": 0.9464,
+    "context_precision": 0.85,
+    "context_recall": 1.0
+  },
+  "elapsed_time_seconds": 544.93
+}

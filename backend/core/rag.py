@@ -49,6 +49,12 @@ STRICT RULES — NON-NEGOTIABLE:
 6. Do not add background knowledge about Rick & Morty that is not present in the retrieved documents.
 """
 
+MINIMAL_SYSTEM_PROMPT = (
+    "Answer the question using only the provided context documents. "
+    "If the context does not contain the answer, say you don't have that "
+    "information. Do not use prior knowledge. Do not add a Sources section."
+)
+
 
 def _format_context(retrieved: list[dict]) -> str:
     """
@@ -129,6 +135,7 @@ async def stream_rag_response(
     history: list[dict],
     top_k: int = 5,
     filter_type: Optional[str] = None,
+    system_prompt: Optional[str] = None
 ) -> AsyncIterator[dict]:
     """
     Main RAG entry point. Yields streaming chunks as dicts.
@@ -146,6 +153,9 @@ async def stream_rag_response(
         history:     previous conversation turns
         top_k:       number of documents to retrieve
         filter_type: optional entity type filter
+        system_prompt: override the default system prompt; falls back to
+                       SYSTEM_PROMPT when None (used by evaluation to test
+                       the minimal baseline prompt)
     """
     # Step 1 — Code-level guardrail check
     guard = classify_query(query)
@@ -218,7 +228,7 @@ async def stream_rag_response(
         with client.messages.stream(
             model="claude-sonnet-4-6",
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
+            system=system_prompt or SYSTEM_PROMPT,
             messages=messages,
         ) as stream:
             for text_chunk in stream.text_stream:
@@ -236,6 +246,7 @@ async def rag_response_full(
     history: list[dict],
     top_k: int = 5,
     filter_type: Optional[str] = None,
+    system_prompt: Optional[str] = None
 ) -> dict:
     """
     Non-streaming version of the RAG pipeline.
@@ -248,7 +259,7 @@ async def rag_response_full(
     result = {}
 
     async for chunk in stream_rag_response(
-        query, history, top_k, filter_type
+        query, history, top_k, filter_type, system_prompt=system_prompt
     ):
         if chunk["type"] == "instant":
             return {
